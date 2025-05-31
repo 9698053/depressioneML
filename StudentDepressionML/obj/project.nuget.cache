@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "FVLi08yMW0s=",
+  "dgSpecHash": "fUuar+wqgck=",
   "success": true,
-  "projectFilePath": "C:\\Users\\yaoting\\source\\repos\\StudentDepressionML\\StudentDepressionML.csproj",
+  "projectFilePath": "C:\\Users\\yaoting\\source\\repos\\depressioneML\\StudentDepressionML\\StudentDepressionML.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\yaoting\\.nuget\\packages\\lightgbm\\2.3.1\\lightgbm.2.3.1.nupkg.sha512",
     "C:\\Users\\yaoting\\.nuget\\packages\\microsoft.ml\\2.0.0\\microsoft.ml.2.0.0.nupkg.sha512",

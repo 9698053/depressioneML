@@ -1267,11 +1267,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\yaoting\\source\\repos\\StudentDepressionML\\StudentDepressionML.csproj",
+      "projectUniqueName": "C:\\Users\\yaoting\\source\\repos\\depressioneML\\StudentDepressionML\\StudentDepressionML.csproj",
       "projectName": "StudentDepressionML",
-      "projectPath": "C:\\Users\\yaoting\\source\\repos\\StudentDepressionML\\StudentDepressionML.csproj",
+      "projectPath": "C:\\Users\\yaoting\\source\\repos\\depressioneML\\StudentDepressionML\\StudentDepressionML.csproj",
       "packagesPath": "C:\\Users\\yaoting\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\yaoting\\source\\repos\\StudentDepressionML\\obj\\",
+      "outputPath": "C:\\Users\\yaoting\\source\\repos\\depressioneML\\StudentDepressionML\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\yaoting\\AppData\\Roaming\\NuGet\\NuGet.Config",

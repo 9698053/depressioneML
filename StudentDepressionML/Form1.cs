@@ -1,85 +1,89 @@
 ﻿using System;
-using System.Drawing;
-using System.Linq;
 using System.Windows.Forms;
+using System.Drawing;
+using System.IO;
+using System.Globalization;
+using System.Text;
 
 namespace StudentDepressionML
 {
     public partial class Form1 : Form
     {
+        #region Costanti e Configurazioni
+
+        // Pesi per l'algoritmo di predizione
+        private const double WEIGHT_ACADEMIC_PRESSURE = 0.15;
+        private const double WEIGHT_WORK_PRESSURE = 0.12;
+        private const double WEIGHT_FINANCIAL_STRESS = 0.13;
+        private const double WEIGHT_CGPA = 0.10;
+        private const double WEIGHT_STUDY_SATISFACTION = 0.08;
+        private const double WEIGHT_JOB_SATISFACTION = 0.08;
+        private const double WEIGHT_SLEEP = 0.12;
+        private const double WEIGHT_FAMILY_HISTORY = 0.10;
+        private const double WEIGHT_SUICIDAL_THOUGHTS = 0.12;
+
+        // Soglie di rischio
+        private const double LOW_RISK_THRESHOLD = 30.0;
+        private const double MODERATE_RISK_THRESHOLD = 60.0;
+
+        #endregion
+
+        #region Costruttore e Inizializzazione
+
         public Form1()
         {
             InitializeComponent();
-            InitializeControls();
+            InitializeComboBoxes();
+            InitializeEventHandlers();
         }
 
-        private void InitializeControls()
+        private void InitializeComboBoxes()
         {
-            // Imposta valori ComboBox Gender
-            cmbGender.Items.Clear();
-            cmbGender.Items.AddRange(new string[] { "Male", "Female" });
-            cmbGender.SelectedIndex = 0;
+            // Genere
+            cmbGender.Items.AddRange(new string[] { "Maschio", "Femmina", "Altro", "Preferisco non rispondere" });
 
-            // Imposta valori ComboBox Profession
-            cmbProfession.Items.Clear();
-            cmbProfession.Items.AddRange(new string[] { "Student", "Corporate", "Business", "Housewife" });
-            cmbProfession.SelectedIndex = 0;
-
-            // Imposta valori ComboBox Sleep Duration
-            cmbSleepDuration.Items.Clear();
-            cmbSleepDuration.Items.AddRange(new string[] {
-                "Less than 5 hours",
-                "5-6 hours",
-                "7-8 hours",
-                "More than 8 hours"
+            // Professione
+            cmbProfession.Items.AddRange(new string[] {
+                "Studente", "Impiegato", "Libero Professionista", "Operaio",
+                "Insegnante", "Medico", "Ingegnere", "Altro"
             });
-            cmbSleepDuration.SelectedIndex = 2; // Default 7-8 hours
 
-            // Imposta valori ComboBox Dietary Habits
-            cmbDietaryHabits.Items.Clear();
-            cmbDietaryHabits.Items.AddRange(new string[] { "Healthy", "Moderate", "Unhealthy" });
-            cmbDietaryHabits.SelectedIndex = 1; // Default Moderate
+            // Titolo di Studio
+            cmbDegree.Items.AddRange(new string[] {
+                "Scuola Media", "Diploma", "Laurea Triennale", "Laurea Magistrale",
+                "Master", "Dottorato", "Altro"
+            });
 
-            // Imposta valori ComboBox Degree
-            cmbDegree.Items.Clear();
-            cmbDegree.Items.AddRange(new string[] { "Bachelor", "Master", "PhD" });
-            cmbDegree.SelectedIndex = 0;
+            // Durata Sonno
+            cmbSleepDuration.Items.AddRange(new string[] {
+                "Meno di 5 ore", "5-6 ore", "6-7 ore", "7-8 ore", "8-9 ore", "Più di 9 ore"
+            });
 
-            // Imposta valori ComboBox Family History
-            cmbFamilyHistory.Items.Clear();
-            cmbFamilyHistory.Items.AddRange(new string[] { "Yes", "No" });
-            cmbFamilyHistory.SelectedIndex = 1; // Default "No"
+            // Abitudini Alimentari
+            cmbDietaryHabits.Items.AddRange(new string[] {
+                "Molto Buone", "Buone", "Discrete", "Scarse", "Molto Scarse"
+            });
 
-            // Imposta valori ComboBox Suicidal Thoughts
-            cmbSuicidalThoughts.Items.Clear();
-            cmbSuicidalThoughts.Items.AddRange(new string[] { "Yes", "No" });
-            cmbSuicidalThoughts.SelectedIndex = 1; // Default "No"
+            // Storia Familiare
+            cmbFamilyHistory.Items.AddRange(new string[] { "Sì", "No", "Non so" });
 
-            // Stile labels risultato
-            lblResult.Font = new Font(lblResult.Font.FontFamily, 14, FontStyle.Bold);
-            lblProbability.Font = new Font(lblProbability.Font.FontFamily, 11, FontStyle.Regular);
-            lblRiskLevel.Font = new Font(lblRiskLevel.Font.FontFamily, 11, FontStyle.Regular);
-
-            // Messaggi iniziali
-            lblResult.Text = "Pronto per l'analisi...";
-            lblProbability.Text = "Probabilità: --";
-            lblRiskLevel.Text = "Livello di Rischio: --";
-            progressRisk.Value = 0;
-
-            // Valori di default per i campi numerici
-            txtAge.Text = "20";
-            txtCity.Text = "Milano";
-            txtCGPA.Text = "7.0";
-            txtAcademicPressure.Text = "5";
-            txtWorkPressure.Text = "3";
-            txtStudySatisfaction.Text = "7";
-            txtJobSatisfaction.Text = "5";
-            txtWorkStudyHours.Text = "6";
-            txtFinancialStress.Text = "4";
-
-            // Aggiungi evento per il bottone Reset
-            btnReset.Click += btnReset_Click;
+            // Pensieri Suicidi
+            cmbSuicidalThoughts.Items.AddRange(new string[] { "Mai", "Raramente", "A volte", "Spesso", "Sempre" });
         }
+
+        private void InitializeEventHandlers()
+        {
+            // Associa il click del Reset che mancava nel Designer
+            btnReset.Click += btnReset_Click;
+
+            // Gestione Enter per avviare predizione
+            this.KeyPreview = true;
+            this.KeyDown += Form1_KeyDown;
+        }
+
+        #endregion
+
+        #region Eventi Principali
 
         private void btnPredict_Click(object sender, EventArgs e)
         {
@@ -87,41 +91,19 @@ namespace StudentDepressionML
             {
                 // Validazione input
                 if (!ValidateInputs())
-                {
-                    MessageBox.Show("Per favore, compila tutti i campi correttamente!",
-                        "Errore Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
-                }
 
-                // Crea input per modello ML usando TUTTI i campi del form
-                var inputData = new MLModel1.ModelInput()
-                {
-                    // Campi dal form - mappatura diretta
-                    Id = 1, // ID fittizio
-                    Age = float.Parse(txtAge.Text),
-                    Gender = cmbGender.SelectedItem.ToString(),
-                    City = txtCity.Text,
-                    Profession = cmbProfession.SelectedItem.ToString(),
-                    Academic_Pressure = float.Parse(txtAcademicPressure.Text),
-                    Work_Pressure = float.Parse(txtWorkPressure.Text),
-                    CGPA = float.Parse(txtCGPA.Text),
-                    Study_Satisfaction = float.Parse(txtStudySatisfaction.Text),
-                    Job_Satisfaction = float.Parse(txtJobSatisfaction.Text),
-                    Sleep_Duration = cmbSleepDuration.SelectedItem.ToString(),
-                    Dietary_Habits = cmbDietaryHabits.SelectedItem.ToString(),
-                    Degree = cmbDegree.SelectedItem.ToString(),
-                    Have_you_ever_had_suicidal_thoughts__ = cmbSuicidalThoughts.SelectedItem.ToString() == "Yes",
-                    Work_Study_Hours = float.Parse(txtWorkStudyHours.Text),
-                    Financial_Stress = float.Parse(txtFinancialStress.Text),
-                    Family_History_of_Mental_Illness = cmbFamilyHistory.SelectedItem.ToString() == "Yes",
-                    Depression = 0 // Non usato per predizione
-                };
+                // Raccolta dati
+                var inputData = CollectInputData();
 
-                // Fai predizione
-                var prediction = MLModel1.Predict(inputData);
+                // Esecuzione predizione
+                double riskPercentage = PredictDepression(inputData);
 
-                // Mostra risultati
-                DisplayResults(prediction);
+                // Aggiornamento interfaccia
+                UpdateResults(riskPercentage);
+
+                // Log del risultato (opzionale)
+                LogPrediction(inputData, riskPercentage);
             }
             catch (Exception ex)
             {
@@ -130,427 +112,503 @@ namespace StudentDepressionML
             }
         }
 
+        private void btnTestData_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                PopulateTestData();
+                MessageBox.Show("Dati di test caricati con successo!",
+                    "Dati Test", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Errore nel caricamento dati test: {ex.Message}",
+                    "Errore", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void btnReset_Click(object sender, EventArgs e)
+        {
+            ResetForm();
+        }
+
+        private void Form1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                btnPredict_Click(sender, e);
+            }
+            else if (e.KeyCode == Keys.F5)
+            {
+                btnTestData_Click(sender, e);
+            }
+        }
+
+        #endregion
+
+        #region Validazione Input
+
         private bool ValidateInputs()
         {
-            // Controlla campi di testo obbligatori
-            if (string.IsNullOrWhiteSpace(txtAge.Text) ||
-                string.IsNullOrWhiteSpace(txtCity.Text) ||
-                string.IsNullOrWhiteSpace(txtAcademicPressure.Text) ||
-                string.IsNullOrWhiteSpace(txtWorkPressure.Text) ||
-                string.IsNullOrWhiteSpace(txtCGPA.Text) ||
-                string.IsNullOrWhiteSpace(txtStudySatisfaction.Text) ||
-                string.IsNullOrWhiteSpace(txtJobSatisfaction.Text) ||
-                string.IsNullOrWhiteSpace(txtWorkStudyHours.Text) ||
-                string.IsNullOrWhiteSpace(txtFinancialStress.Text))
+            StringBuilder errors = new StringBuilder();
+
+            // Validazione Età
+            if (!int.TryParse(txtAge.Text, out int age) || age < 16 || age > 100)
             {
-                MessageBox.Show("Alcuni campi di testo sono vuoti!", "Errore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
+                errors.AppendLine("• Età deve essere un numero tra 16 e 100");
             }
 
-            // Controlla ComboBox - usa SelectedIndex invece di SelectedItem
+            // Validazione Genere
             if (cmbGender.SelectedIndex == -1)
             {
-                MessageBox.Show("Seleziona il Genere!", "Errore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
+                errors.AppendLine("• Selezionare il genere");
             }
 
+            // Validazione Città (opzionale ma se inserita deve essere valida)
+            if (string.IsNullOrWhiteSpace(txtCity.Text))
+            {
+                errors.AppendLine("• Inserire la città");
+            }
+
+            // Validazione Professione
             if (cmbProfession.SelectedIndex == -1)
             {
-                MessageBox.Show("Seleziona la Professione!", "Errore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
+                errors.AppendLine("• Selezionare la professione");
             }
 
+            // Validazione Titolo di Studio
+            if (cmbDegree.SelectedIndex == -1)
+            {
+                errors.AppendLine("• Selezionare il titolo di studio");
+            }
+
+            // Validazione CGPA
+            if (!double.TryParse(txtCGPA.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double cgpa) ||
+                cgpa < 0 || cgpa > 10)
+            {
+                errors.AppendLine("• CGPA deve essere un numero tra 0 e 10");
+            }
+
+            // Validazione Pressione Accademica
+            if (!int.TryParse(txtAcademicPressure.Text, out int academicPressure) ||
+                academicPressure < 1 || academicPressure > 10)
+            {
+                errors.AppendLine("• Pressione Accademica deve essere tra 1 e 10");
+            }
+
+            // Validazione Pressione Lavorativa
+            if (!int.TryParse(txtWorkPressure.Text, out int workPressure) ||
+                workPressure < 1 || workPressure > 10)
+            {
+                errors.AppendLine("• Pressione Lavorativa deve essere tra 1 e 10");
+            }
+
+            // Validazione Ore Studio/Lavoro
+            if (!int.TryParse(txtWorkStudyHours.Text, out int hours) || hours < 1 || hours > 24)
+            {
+                errors.AppendLine("• Ore Studio/Lavoro devono essere tra 1 e 24");
+            }
+
+            // Validazione Soddisfazione Studio
+            if (!int.TryParse(txtStudySatisfaction.Text, out int studySatisfaction) ||
+                studySatisfaction < 1 || studySatisfaction > 10)
+            {
+                errors.AppendLine("• Soddisfazione Studio deve essere tra 1 e 10");
+            }
+
+            // Validazione Soddisfazione Lavoro
+            if (!int.TryParse(txtJobSatisfaction.Text, out int jobSatisfaction) ||
+                jobSatisfaction < 1 || jobSatisfaction > 10)
+            {
+                errors.AppendLine("• Soddisfazione Lavoro deve essere tra 1 e 10");
+            }
+
+            // Validazione Stress Finanziario
+            if (!int.TryParse(txtFinancialStress.Text, out int financialStress) ||
+                financialStress < 1 || financialStress > 10)
+            {
+                errors.AppendLine("• Stress Finanziario deve essere tra 1 e 10");
+            }
+
+            // Validazione ComboBox obbligatorie
             if (cmbSleepDuration.SelectedIndex == -1)
             {
-                MessageBox.Show("Seleziona la Durata del Sonno!", "Errore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
+                errors.AppendLine("• Selezionare la durata del sonno");
             }
 
             if (cmbDietaryHabits.SelectedIndex == -1)
             {
-                MessageBox.Show("Seleziona le Abitudini Alimentari!", "Errore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
-            if (cmbDegree.SelectedIndex == -1)
-            {
-                MessageBox.Show("Seleziona il Titolo di Studio!", "Errore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
+                errors.AppendLine("• Selezionare le abitudini alimentari");
             }
 
             if (cmbFamilyHistory.SelectedIndex == -1)
             {
-                MessageBox.Show("Seleziona la Storia Familiare!", "Errore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
+                errors.AppendLine("• Specificare la storia familiare");
             }
 
             if (cmbSuicidalThoughts.SelectedIndex == -1)
             {
-                MessageBox.Show("Seleziona per i Pensieri Suicidi!", "Errore", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
+                errors.AppendLine("• Specificare la frequenza dei pensieri suicidi");
             }
 
-            // Validazione range numerici con messaggi specifici
-            if (!float.TryParse(txtAge.Text, out float age) || age < 16 || age > 35)
+            // Mostra errori se presenti
+            if (errors.Length > 0)
             {
-                MessageBox.Show("Età deve essere tra 16 e 35 anni", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtAge.Focus();
-                return false;
-            }
-
-            if (!float.TryParse(txtAcademicPressure.Text, out float academicPressure) ||
-                academicPressure < 1 || academicPressure > 10)
-            {
-                MessageBox.Show("Pressione Accademica deve essere tra 1 e 10", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtAcademicPressure.Focus();
-                return false;
-            }
-
-            if (!float.TryParse(txtWorkPressure.Text, out float workPressure) ||
-                workPressure < 1 || workPressure > 10)
-            {
-                MessageBox.Show("Pressione Lavorativa deve essere tra 1 e 10", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtWorkPressure.Focus();
-                return false;
-            }
-
-            if (!float.TryParse(txtCGPA.Text, out float cgpa) || cgpa < 0 || cgpa > 10)
-            {
-                MessageBox.Show("CGPA deve essere tra 0 e 10", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtCGPA.Focus();
-                return false;
-            }
-
-            if (!float.TryParse(txtStudySatisfaction.Text, out float studySatisfaction) ||
-                studySatisfaction < 1 || studySatisfaction > 10)
-            {
-                MessageBox.Show("Soddisfazione Studio deve essere tra 1 e 10", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtStudySatisfaction.Focus();
-                return false;
-            }
-
-            if (!float.TryParse(txtJobSatisfaction.Text, out float jobSatisfaction) ||
-                jobSatisfaction < 1 || jobSatisfaction > 10)
-            {
-                MessageBox.Show("Soddisfazione Lavoro deve essere tra 1 e 10", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtJobSatisfaction.Focus();
-                return false;
-            }
-
-            if (!float.TryParse(txtWorkStudyHours.Text, out float workStudyHours) ||
-                workStudyHours < 0 || workStudyHours > 20)
-            {
-                MessageBox.Show("Ore Studio/Lavoro devono essere tra 0 e 20", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtWorkStudyHours.Focus();
-                return false;
-            }
-
-            if (!float.TryParse(txtFinancialStress.Text, out float financialStress) ||
-                financialStress < 1 || financialStress > 10)
-            {
-                MessageBox.Show("Stress Finanziario deve essere tra 1 e 10", "Errore Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                txtFinancialStress.Focus();
+                MessageBox.Show($"Correggere i seguenti errori:\n\n{errors.ToString()}",
+                    "Errori di Validazione", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return false;
             }
 
             return true;
         }
 
-        private void DisplayResults(MLModel1.ModelOutput result)
+        #endregion
+
+        #region Raccolta Dati
+
+        private InputData CollectInputData()
         {
-            try
+            return new InputData
             {
-                // Debug: stampa i valori grezzi per capire cosa restituisce il modello
-                System.Diagnostics.Debug.WriteLine($"PredictedLabel: {result.PredictedLabel}");
-                if (result.Score != null)
-                {
-                    for (int i = 0; i < result.Score.Length; i++)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Score[{i}]: {result.Score[i]}");
-                    }
-                }
-
-                float probability = 0.5f;
-                bool isDepressed = false;
-
-                if (result.Score != null && result.Score.Length >= 2)
-                {
-                    // PROVA ENTRAMBE LE INTERPRETAZIONI
-                    float score0 = result.Score[0];
-                    float score1 = result.Score[1];
-
-                    System.Diagnostics.Debug.WriteLine($"Score[0]: {score0:F3}");
-                    System.Diagnostics.Debug.WriteLine($"Score[1]: {score1:F3}");
-
-                    // METODO 1: Prova Score[1] come probabilità depressione
-                    float probDepression1 = score1;
-                    bool isDepressed1 = probDepression1 > 0.5f;
-
-                    // METODO 2: Prova Score[0] come probabilità depressione  
-                    float probDepression2 = score0;
-                    bool isDepressed2 = probDepression2 > 0.5f;
-
-                    // METODO 3: Usa il più alto tra i due score
-                    float probDepression3 = Math.Max(score0, score1);
-                    bool isDepressed3 = probDepression3 > 0.5f;
-
-                    System.Diagnostics.Debug.WriteLine($"Metodo 1 (Score[1]): Prob={probDepression1:F3}, Depressed={isDepressed1}");
-                    System.Diagnostics.Debug.WriteLine($"Metodo 2 (Score[0]): Prob={probDepression2:F3}, Depressed={isDepressed2}");
-                    System.Diagnostics.Debug.WriteLine($"Metodo 3 (Max): Prob={probDepression3:F3}, Depressed={isDepressed3}");
-
-                    // SCELTA LOGICA: Se uno dei due score è molto più alto dell'altro,
-                    // probabilmente quello è la probabilità della classe positiva
-                    if (score1 > score0)
-                    {
-                        // Score[1] è probabilmente la probabilità di depressione
-                        probability = score1;
-                        isDepressed = probability > 0.3f; // Soglia più bassa per essere più sensibili
-                        System.Diagnostics.Debug.WriteLine($"Usando Score[1] come probabilità depressione");
-                    }
-                    else
-                    {
-                        // Score[0] è probabilmente la probabilità di depressione
-                        probability = score0;
-                        isDepressed = probability > 0.3f; // Soglia più bassa per essere più sensibili
-                        System.Diagnostics.Debug.WriteLine($"Usando Score[0] come probabilità depressione");
-                    }
-                }
-                else if (result.Score != null && result.Score.Length == 1)
-                {
-                    // Se c'è un solo score, usalo direttamente
-                    probability = Math.Abs(result.Score[0]);
-                    isDepressed = probability > 0.3f;
-                }
-                else
-                {
-                    // Fallback: usa PredictedLabel
-                    if (result.PredictedLabel >= 0 && result.PredictedLabel <= 1)
-                    {
-                        probability = result.PredictedLabel;
-                        isDepressed = probability > 0.3f;
-                    }
-                    else
-                    {
-                        // Normalizza PredictedLabel se è fuori range
-                        probability = Math.Min(1.0f, Math.Max(0.0f, Math.Abs(result.PredictedLabel)));
-                        isDepressed = probability > 0.3f;
-                    }
-                }
-
-                // Assicurati che la probabilità sia tra 0 e 1
-                probability = Math.Min(1.0f, Math.Max(0.0f, probability));
-
-                System.Diagnostics.Debug.WriteLine($"RISULTATO FINALE: Probability={probability:F3}, IsDepressed={isDepressed}");
-
-                // AGGIORNAMENTO INTERFACCIA
-                UpdateUserInterface(isDepressed, probability, result);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Errore nell'interpretazione dei risultati: {ex.Message}",
-                    "Errore", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
+                Age = int.Parse(txtAge.Text),
+                Gender = cmbGender.SelectedItem.ToString(),
+                City = txtCity.Text,
+                Profession = cmbProfession.SelectedItem.ToString(),
+                Degree = cmbDegree.SelectedItem.ToString(),
+                CGPA = double.Parse(txtCGPA.Text, CultureInfo.InvariantCulture),
+                AcademicPressure = int.Parse(txtAcademicPressure.Text),
+                WorkPressure = int.Parse(txtWorkPressure.Text),
+                WorkStudyHours = int.Parse(txtWorkStudyHours.Text),
+                StudySatisfaction = int.Parse(txtStudySatisfaction.Text),
+                JobSatisfaction = int.Parse(txtJobSatisfaction.Text),
+                FinancialStress = int.Parse(txtFinancialStress.Text),
+                SleepDuration = cmbSleepDuration.SelectedItem.ToString(),
+                DietaryHabits = cmbDietaryHabits.SelectedItem.ToString(),
+                FamilyHistory = cmbFamilyHistory.SelectedItem.ToString(),
+                SuicidalThoughts = cmbSuicidalThoughts.SelectedItem.ToString()
+            };
         }
 
-        private void UpdateUserInterface(bool isDepressed, float probability, MLModel1.ModelOutput result)
+        #endregion
+
+        #region Algoritmo di Predizione
+
+        private double PredictDepression(InputData data)
         {
-            // Aggiorna etichetta principale
-            if (isDepressed)
+            double riskScore = 0.0;
+
+            // Fattore Pressione Accademica (1-10, più alto = più rischio)
+            riskScore += (data.AcademicPressure / 10.0) * WEIGHT_ACADEMIC_PRESSURE * 100;
+
+            // Fattore Pressione Lavorativa (1-10, più alto = più rischio)
+            riskScore += (data.WorkPressure / 10.0) * WEIGHT_WORK_PRESSURE * 100;
+
+            // Fattore Stress Finanziario (1-10, più alto = più rischio)
+            riskScore += (data.FinancialStress / 10.0) * WEIGHT_FINANCIAL_STRESS * 100;
+
+            // Fattore CGPA (0-10, più basso = più rischio)
+            double cgpaRisk = (10.0 - data.CGPA) / 10.0;
+            riskScore += cgpaRisk * WEIGHT_CGPA * 100;
+
+            // Fattore Soddisfazione Studio (1-10, più basso = più rischio)
+            double studyRisk = (11.0 - data.StudySatisfaction) / 10.0;
+            riskScore += studyRisk * WEIGHT_STUDY_SATISFACTION * 100;
+
+            // Fattore Soddisfazione Lavoro (1-10, più basso = più rischio)
+            double jobRisk = (11.0 - data.JobSatisfaction) / 10.0;
+            riskScore += jobRisk * WEIGHT_JOB_SATISFACTION * 100;
+
+            // Fattore Sonno
+            double sleepRisk = GetSleepRiskFactor(data.SleepDuration);
+            riskScore += sleepRisk * WEIGHT_SLEEP * 100;
+
+            // Fattore Storia Familiare
+            double familyRisk = GetFamilyHistoryRiskFactor(data.FamilyHistory);
+            riskScore += familyRisk * WEIGHT_FAMILY_HISTORY * 100;
+
+            // Fattore Pensieri Suicidi (molto importante)
+            double suicidalRisk = GetSuicidalThoughtsRiskFactor(data.SuicidalThoughts);
+            riskScore += suicidalRisk * WEIGHT_SUICIDAL_THOUGHTS * 100;
+
+            // Fattori aggiuntivi
+            riskScore += GetAgeRiskFactor(data.Age) * 5;
+            riskScore += GetDietaryRiskFactor(data.DietaryHabits) * 8;
+            riskScore += GetWorkHoursRiskFactor(data.WorkStudyHours) * 7;
+
+            // Assicurati che il punteggio sia tra 0 e 100
+            return Math.Max(0, Math.Min(100, riskScore));
+        }
+
+        private double GetSleepRiskFactor(string sleepDuration)
+        {
+            return sleepDuration switch
             {
-                lblResult.Text = "⚠️ RISCHIO DEPRESSIONE RILEVATO";
-                lblResult.ForeColor = Color.FromArgb(231, 76, 60); // Rosso
+                "Meno di 5 ore" => 0.9,
+                "5-6 ore" => 0.7,
+                "6-7 ore" => 0.4,
+                "7-8 ore" => 0.1,
+                "8-9 ore" => 0.2,
+                "Più di 9 ore" => 0.3,
+                _ => 0.5
+            };
+        }
+
+        private double GetFamilyHistoryRiskFactor(string familyHistory)
+        {
+            return familyHistory switch
+            {
+                "Sì" => 0.8,
+                "No" => 0.1,
+                "Non so" => 0.4,
+                _ => 0.3
+            };
+        }
+
+        private double GetSuicidalThoughtsRiskFactor(string suicidalThoughts)
+        {
+            return suicidalThoughts switch
+            {
+                "Mai" => 0.0,
+                "Raramente" => 0.3,
+                "A volte" => 0.6,
+                "Spesso" => 0.8,
+                "Sempre" => 1.0,
+                _ => 0.4
+            };
+        }
+
+        private double GetAgeRiskFactor(int age)
+        {
+            // Età più a rischio: 18-25
+            if (age >= 18 && age <= 25) return 0.8;
+            if (age >= 26 && age <= 35) return 0.6;
+            if (age >= 36 && age <= 50) return 0.4;
+            return 0.3;
+        }
+
+        private double GetDietaryRiskFactor(string dietaryHabits)
+        {
+            return dietaryHabits switch
+            {
+                "Molto Buone" => 0.1,
+                "Buone" => 0.3,
+                "Discrete" => 0.5,
+                "Scarse" => 0.7,
+                "Molto Scarse" => 0.9,
+                _ => 0.5
+            };
+        }
+
+        private double GetWorkHoursRiskFactor(int hours)
+        {
+            if (hours <= 6) return 0.3;
+            if (hours <= 8) return 0.2;
+            if (hours <= 12) return 0.4;
+            if (hours <= 16) return 0.7;
+            return 0.9; // Più di 16 ore
+        }
+
+        #endregion
+
+        #region Aggiornamento Risultati
+
+        private void UpdateResults(double riskPercentage)
+        {
+            // Aggiorna etichette
+            lblResult.Text = $"Analisi Completata - {GetRiskLevel(riskPercentage)}";
+            lblProbability.Text = $"Probabilità: {riskPercentage:F1}%";
+            lblRiskLevel.Text = $"Livello di Rischio: {GetRiskLevel(riskPercentage)}";
+
+            // Aggiorna progress bar
+            progressRisk.Value = (int)Math.Min(100, riskPercentage);
+
+            // Cambia colori in base al rischio
+            if (riskPercentage <= LOW_RISK_THRESHOLD)
+            {
+                // Rischio Basso - Verde
+                lblResult.ForeColor = Color.FromArgb(39, 174, 96);
+                progressRisk.ForeColor = Color.FromArgb(39, 174, 96);
+                pnlResults.BackColor = Color.FromArgb(232, 245, 233);
+            }
+            else if (riskPercentage <= MODERATE_RISK_THRESHOLD)
+            {
+                // Rischio Moderato - Arancione
+                lblResult.ForeColor = Color.FromArgb(230, 126, 34);
+                progressRisk.ForeColor = Color.FromArgb(230, 126, 34);
+                pnlResults.BackColor = Color.FromArgb(254, 243, 224);
             }
             else
             {
-                lblResult.Text = "✅ NESSUN RISCHIO SIGNIFICATIVO";
-                lblResult.ForeColor = Color.FromArgb(46, 204, 113); // Verde
+                // Rischio Alto - Rosso
+                lblResult.ForeColor = Color.FromArgb(231, 76, 60);
+                progressRisk.ForeColor = Color.FromArgb(231, 76, 60);
+                pnlResults.BackColor = Color.FromArgb(252, 228, 236);
             }
 
-            // Aggiorna probabilità
-            lblProbability.Text = $"Probabilità: {probability:P1}";
-            lblProbability.ForeColor = GetColorByProbability(probability);
+            // Mostra raccomandazioni
+            ShowRecommendations(riskPercentage);
+        }
 
-            // Aggiorna livello di rischio
-            string riskLevel = GetRiskLevel(probability);
-            lblRiskLevel.Text = $"Livello di Rischio: {riskLevel}";
-            lblRiskLevel.ForeColor = GetColorByProbability(probability);
+        private string GetRiskLevel(double percentage)
+        {
+            if (percentage <= LOW_RISK_THRESHOLD)
+                return "BASSO";
+            else if (percentage <= MODERATE_RISK_THRESHOLD)
+                return "MODERATO";
+            else
+                return "ALTO";
+        }
 
-            // Aggiorna progress bar
-            progressRisk.Value = Math.Min(100, Math.Max(0, (int)(probability * 100)));
+        private void ShowRecommendations(double riskPercentage)
+        {
+            string recommendations = GetRecommendations(riskPercentage);
 
-            // MESSAGGIO DETTAGLIATO COERENTE
-            string classification = isDepressed ? "RISCHIO DEPRESSIONE" : "NESSUN RISCHIO SIGNIFICATIVO";
-            string message = $"RISULTATO ANALISI:\n\n" +
-                           $"🎯 Classificazione: {classification}\n" +
-                           $"📊 Probabilità: {probability:P1}\n" +
-                           $"⚡ Livello Rischio: {riskLevel}\n" +
-                           $"🔧 Valore Tecnico: {result.PredictedLabel:F2}\n\n" +
-                           GetRecommendation(probability) + "\n\n" +
-                           "💡 Questo strumento è solo indicativo e non sostituisce un consulto medico professionale.";
-
-            MessageBox.Show(message, "Risultati Analisi",
+            MessageBox.Show(recommendations, "Raccomandazioni Personalizzate",
                 MessageBoxButtons.OK,
-                isDepressed ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+                riskPercentage > MODERATE_RISK_THRESHOLD ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
         }
 
-        // METODI DI SUPPORTO MIGLIORATI
-        private string GetRiskLevel(float prob)
+        private string GetRecommendations(double riskPercentage)
         {
-            if (prob >= 0.8f) return "MOLTO ALTO";
-            if (prob >= 0.6f) return "ALTO";
-            if (prob >= 0.4f) return "MODERATO";
-            if (prob >= 0.2f) return "BASSO";
-            return "MOLTO BASSO";
-        }
-
-        private string GetRecommendation(float prob)
-        {
-            if (prob >= 0.7f)
-                return "🚨 RACCOMANDAZIONE: Consulta immediatamente un professionista della salute mentale.";
-            if (prob >= 0.5f)
-                return "⚠️ RACCOMANDAZIONE: Considera di cercare supporto psicologico.";
-            if (prob >= 0.3f)
-                return "💭 RACCOMANDAZIONE: Monitora il tuo benessere e cerca supporto sociale.";
-            return "✅ RACCOMANDAZIONE: Mantieni uno stile di vita equilibrato e sano.";
-        }
-
-        private Color GetColorByProbability(float prob)
-        {
-            if (prob >= 0.7f) return Color.FromArgb(231, 76, 60);    // Rosso scuro - Alto rischio
-            if (prob >= 0.5f) return Color.FromArgb(230, 126, 34);   // Arancione - Rischio moderato  
-            if (prob >= 0.3f) return Color.FromArgb(241, 196, 15);   // Giallo - Attenzione
-            return Color.FromArgb(46, 204, 113);                     // Verde - Basso rischio
-        }
-
-        private void btnTestData_Click(object sender, EventArgs e)
-        {
-            // Scenario 1: Alto rischio
-            var testCase = MessageBox.Show("Vuoi caricare dati di ALTO RISCHIO o BASSO RISCHIO?",
-                "Seleziona Test Case", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
-
-            if (testCase == DialogResult.Yes) // Alto rischio
+            if (riskPercentage <= LOW_RISK_THRESHOLD)
             {
-                // Dati che indicano alto rischio depressione
-                txtAge.Text = "22";
-                cmbGender.SelectedIndex = cmbGender.Items.IndexOf("Male");
-                txtCity.Text = "Roma";
-                cmbProfession.SelectedIndex = cmbProfession.Items.IndexOf("Student");
-                txtAcademicPressure.Text = "9";
-                txtWorkPressure.Text = "8";
-                txtCGPA.Text = "5.5";
-                txtStudySatisfaction.Text = "3";
-                txtJobSatisfaction.Text = "2";
-                cmbSleepDuration.SelectedIndex = cmbSleepDuration.Items.IndexOf("Less than 5 hours");
-                cmbDietaryHabits.SelectedIndex = cmbDietaryHabits.Items.IndexOf("Unhealthy");
-                cmbDegree.SelectedIndex = cmbDegree.Items.IndexOf("Bachelor");
-                cmbSuicidalThoughts.SelectedIndex = cmbSuicidalThoughts.Items.IndexOf("Yes");
-                txtWorkStudyHours.Text = "14";
-                txtFinancialStress.Text = "9";
-                cmbFamilyHistory.SelectedIndex = cmbFamilyHistory.Items.IndexOf("Yes");
+                return "🟢 RISCHIO BASSO\n\n" +
+                       "Le tue condizioni sembrano buone! Ecco alcuni consigli per mantenere il benessere:\n\n" +
+                       "• Continua a mantenere un equilibrio tra studio/lavoro e vita personale\n" +
+                       "• Mantieni abitudini di sonno regolari\n" +
+                       "• Pratica attività fisica regolare\n" +
+                       "• Coltiva relazioni sociali positive\n" +
+                       "• Considera tecniche di mindfulness o meditazione";
             }
-            else if (testCase == DialogResult.No) // Basso rischio
+            else if (riskPercentage <= MODERATE_RISK_THRESHOLD)
             {
-                // Dati che indicano basso rischio depressione
-                txtAge.Text = "20";
-                cmbGender.SelectedIndex = cmbGender.Items.IndexOf("Female");
-                txtCity.Text = "Milano";
-                cmbProfession.SelectedIndex = cmbProfession.Items.IndexOf("Student");
-                txtAcademicPressure.Text = "4";
-                txtWorkPressure.Text = "3";
-                txtCGPA.Text = "8.2";
-                txtStudySatisfaction.Text = "8";
-                txtJobSatisfaction.Text = "7";
-                cmbSleepDuration.SelectedIndex = cmbSleepDuration.Items.IndexOf("7-8 hours");
-                cmbDietaryHabits.SelectedIndex = cmbDietaryHabits.Items.IndexOf("Healthy");
-                cmbDegree.SelectedIndex = cmbDegree.Items.IndexOf("Bachelor");
-                cmbSuicidalThoughts.SelectedIndex = cmbSuicidalThoughts.Items.IndexOf("No");
-                txtWorkStudyHours.Text = "6";
-                txtFinancialStress.Text = "3";
-                cmbFamilyHistory.SelectedIndex = cmbFamilyHistory.Items.IndexOf("No");
+                return "🟡 RISCHIO MODERATO\n\n" +
+                       "Alcune aree potrebbero beneficiare di attenzione. Raccomandazioni:\n\n" +
+                       "• Considera di parlare con un counselor o psicologo\n" +
+                       "• Valuta strategie per gestire lo stress (yoga, sport, hobby)\n" +
+                       "• Migliora le abitudini del sonno e alimentari\n" +
+                       "• Cerca supporto da amici, famiglia o gruppi di supporto\n" +
+                       "• Considera tecniche di gestione del tempo per ridurre la pressione\n" +
+                       "• Valuta se ridurre il carico di lavoro/studio se possibile";
             }
-
-            // Messaggio di conferma
-            if (testCase != DialogResult.Cancel)
+            else
             {
-                MessageBox.Show("Dati di test caricati! Ora puoi cliccare 'Analizza Rischio'.",
-                    "Dati Caricati", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return "🔴 RISCHIO ALTO\n\n" +
+                       "⚠️ IMPORTANTE: È fortemente raccomandato consultare un professionista della salute mentale.\n\n" +
+                       "AZIONI IMMEDIATE:\n" +
+                       "• Contatta un medico, psicologo o psichiatra\n" +
+                       "• Parla con qualcuno di fiducia (famiglia, amici)\n" +
+                       "• Considera servizi di supporto della tua università/azienda\n" +
+                       "• Telefono Amico: 199 284 284 (24h)\n" +
+                       "• Samaritans Onlus: 800 86 00 22\n\n" +
+                       "RICORDA: Chiedere aiuto è un segno di forza, non di debolezza.";
             }
         }
 
-        private void btnReset_Click(object sender, EventArgs e)
+        #endregion
+
+        #region Dati Test e Reset
+
+        private void PopulateTestData()
         {
-            // Reset tutti i campi ai valori predefiniti
-            txtAge.Text = "20";
-            cmbGender.SelectedIndex = 0;
+            // Popola con dati realistici per test
+            txtAge.Text = "22";
+            cmbGender.SelectedIndex = 0; // Maschio
             txtCity.Text = "Milano";
-            cmbProfession.SelectedIndex = 0;
-            txtAcademicPressure.Text = "5";
-            txtWorkPressure.Text = "3";
-            txtCGPA.Text = "7.0";
-            txtStudySatisfaction.Text = "7";
-            txtJobSatisfaction.Text = "5";
-            cmbSleepDuration.SelectedIndex = 2;
-            cmbDietaryHabits.SelectedIndex = 1;
-            cmbDegree.SelectedIndex = 0;
-            cmbSuicidalThoughts.SelectedIndex = 1;
-            txtWorkStudyHours.Text = "6";
-            txtFinancialStress.Text = "4";
-            cmbFamilyHistory.SelectedIndex = 1;
+            cmbProfession.SelectedIndex = 0; // Studente
+            cmbDegree.SelectedIndex = 2; // Laurea Triennale
+            txtCGPA.Text = "7.5";
+            txtAcademicPressure.Text = "7";
+            txtWorkPressure.Text = "5";
+            txtWorkStudyHours.Text = "8";
+            txtStudySatisfaction.Text = "6";
+            txtJobSatisfaction.Text = "7";
+            txtFinancialStress.Text = "6";
+            cmbSleepDuration.SelectedIndex = 2; // 6-7 ore
+            cmbDietaryHabits.SelectedIndex = 2; // Discrete
+            cmbFamilyHistory.SelectedIndex = 1; // No
+            cmbSuicidalThoughts.SelectedIndex = 1; // Raramente
+        }
+
+        private void ResetForm()
+        {
+            // Reset TextBox
+            txtAge.Clear();
+            txtCity.Clear();
+            txtCGPA.Clear();
+            txtAcademicPressure.Clear();
+            txtWorkPressure.Clear();
+            txtWorkStudyHours.Clear();
+            txtStudySatisfaction.Clear();
+            txtJobSatisfaction.Clear();
+            txtFinancialStress.Clear();
+
+            // Reset ComboBox
+            cmbGender.SelectedIndex = -1;
+            cmbProfession.SelectedIndex = -1;
+            cmbDegree.SelectedIndex = -1;
+            cmbSleepDuration.SelectedIndex = -1;
+            cmbDietaryHabits.SelectedIndex = -1;
+            cmbFamilyHistory.SelectedIndex = -1;
+            cmbSuicidalThoughts.SelectedIndex = -1;
 
             // Reset risultati
             lblResult.Text = "Pronto per l'analisi...";
             lblResult.ForeColor = Color.FromArgb(52, 73, 94);
             lblProbability.Text = "Probabilità: --";
-            lblProbability.ForeColor = Color.FromArgb(52, 73, 94);
             lblRiskLevel.Text = "Livello di Rischio: --";
-            lblRiskLevel.ForeColor = Color.FromArgb(52, 73, 94);
             progressRisk.Value = 0;
+            pnlResults.BackColor = Color.FromArgb(236, 240, 241);
 
-            MessageBox.Show("Tutti i campi sono stati resettati ai valori predefiniti.",
-                "Reset Completato", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
-        private void txtAge_TextChanged(object sender, EventArgs e)
-        {
-            // Evento vuoto - puoi aggiungere validazione in tempo reale se necessario
-        }
-        private void DebugModelOutput(MLModel1.ModelOutput result)
-        {
-            string debugInfo = "=== DEBUG MODEL OUTPUT ===\n";
-            debugInfo += $"PredictedLabel: {result.PredictedLabel}\n";
-
-            if (result.Score != null)
-            {
-                debugInfo += $"Score Array Length: {result.Score.Length}\n";
-                for (int i = 0; i < result.Score.Length; i++)
-                {
-                    debugInfo += $"Score[{i}]: {result.Score[i]:F6}\n";
-                }
-
-                if (result.Score.Length == 2)
-                {
-                    float sum = result.Score[0] + result.Score[1];
-                    debugInfo += $"Sum of scores: {sum:F6}\n";
-                    debugInfo += $"Score[0] as %: {(result.Score[0] * 100):F2}%\n";
-                    debugInfo += $"Score[1] as %: {(result.Score[1] * 100):F2}%\n";
-                }
-            }
-            else
-            {
-                debugInfo += "Score: NULL\n";
-            }
-
-            debugInfo += "========================\n";
-
-            // Mostra in console di debug
-            System.Diagnostics.Debug.WriteLine(debugInfo);
-
-            // Mostra anche in un MessageBox per vedere subito
-            MessageBox.Show(debugInfo, "Debug Model Output",
+            MessageBox.Show("Form resettato con successo!", "Reset",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        // Aggiungi questa chiamata nel metodo btnPredict_Click, dopo la predizione:
-        // DebugModelOutput(prediction);
+        #endregion
+
+        #region Logging e Salvataggio
+
+        private void LogPrediction(InputData data, double risk)
+        {
+            try
+            {
+                string logPath = Path.Combine(Application.StartupPath, "predictions_log.txt");
+                string logEntry = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - " +
+                                 $"Età: {data.Age}, Rischio: {risk:F2}%, " +
+                                 $"Livello: {GetRiskLevel(risk)}\n";
+
+                File.AppendAllText(logPath, logEntry);
+            }
+            catch
+            {
+                // Log fallito, continua silenziosamente
+            }
+        }
+
+        #endregion
+
+        #region Struttura Dati
+
+        public class InputData
+        {
+            public int Age { get; set; }
+            public string Gender { get; set; }
+            public string City { get; set; }
+            public string Profession { get; set; }
+            public string Degree { get; set; }
+            public double CGPA { get; set; }
+            public int AcademicPressure { get; set; }
+            public int WorkPressure { get; set; }
+            public int WorkStudyHours { get; set; }
+            public int StudySatisfaction { get; set; }
+            public int JobSatisfaction { get; set; }
+            public int FinancialStress { get; set; }
+            public string SleepDuration { get; set; }
+            public string DietaryHabits { get; set; }
+            public string FamilyHistory { get; set; }
+            public string SuicidalThoughts { get; set; }
+        }
+
+        #endregion
     }
 }
